@@ -1,0 +1,14 @@
+#远程redis服务的地址和端口号
+remoteRedisHost=127.0.0.1
+remoteRedisPort=6379
+
+#本地redis服务端口号
+localRedisPort=6379
+
+＃子目录层数
+dirnum=0
+
+#文件块大小,单位是MB,要小于2048
+blocksize=1
+#服务器监听的端口
+serverport=12345
