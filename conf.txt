@@ -9,6 +9,6 @@ localRedisPort=6379
 dirnum=0
 
 #文件块大小,单位是MB,要小于2048
-blocksize=1
+blocksize=128
 #服务器监听的端口
 serverport=12345

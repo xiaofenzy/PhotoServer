@@ -6,10 +6,12 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.util.Hashtable;
+import java.util.Timer;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+import op.ProfileTimerTask;
 import common.WriteTask;
 
 public class PhotoServer {
@@ -54,6 +56,11 @@ public class PhotoServer {
 	
 	public void startUp()
 	{
+		
+		Timer t = new Timer();
+		//1秒后开始统计，每10秒输出一次平均信息
+		t.schedule(new ProfileTimerTask(10), 1000, 10*1000);
+		
 		while(true)
 		{
 			try {

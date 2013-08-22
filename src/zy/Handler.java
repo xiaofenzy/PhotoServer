@@ -9,6 +9,7 @@ import java.util.Hashtable;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 
+import common.ServerProfile;
 import common.WriteTask;
 import op.StorePhoto;
 import op.WriteThread;
@@ -22,7 +23,7 @@ public class Handler implements Runnable{
 	private OutputStream os;					//向客户端的输出流
 	public Handler(Socket s,Hashtable<String,BlockingQueue<WriteTask>> sq)
 	{
-		System.out.println(s.getRemoteSocketAddress()+"kaishi");
+//		System.out.println(s.getRemoteSocketAddress()+"kaishi");
 		this.s = s;
 		this.sq = sq;
 		try {
@@ -54,6 +55,7 @@ public class Handler implements Runnable{
 					String set = readline();
 					String md5 = readline();
 					int n = Integer.parseInt(readline());
+					ServerProfile.addWrite(n);			//统计写入的字节数
 					byte[] content = readBytes(n);
 //					is.skip(is.available());
 					WriteTask t = new WriteTask(set,md5,content);
@@ -91,6 +93,7 @@ public class Handler implements Runnable{
 				}
 				else if(action.equals("get"))
 				{
+					long start = System.currentTimeMillis();			//统计读取延迟
 					String md5 = readline();
 					StorePhoto sp = new StorePhoto();
 					byte[] content = sp.getPhoto(md5);
@@ -104,10 +107,11 @@ public class Handler implements Runnable{
 						os.write(content);
 						os.flush();
 					}
-					
+					ServerProfile.addDelay(System.currentTimeMillis() - start);
 				}
 				else if(action.equals("search"))
 				{
+					long start = System.currentTimeMillis();
 					String info = readline();
 					StorePhoto sp = new StorePhoto();
 					byte[] content = sp.searchPhoto(info);
@@ -121,14 +125,14 @@ public class Handler implements Runnable{
 						os.write(content);
 						os.flush();
 					}
-					
+					ServerProfile.addDelay(System.currentTimeMillis() - start);
 				}
 			}
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
-		System.out.println(s.getRemoteSocketAddress()+"jieshu");
+//		System.out.println(s.getRemoteSocketAddress()+"jieshu");
 	}
 	
 	/**
