@@ -8,6 +8,9 @@ localRedisPort=6379
 ＃子目录层数
 dirnum=0
 
+#每隔period秒统计一次读写速率
+period=10
+
 #文件块大小,单位是MB,要小于2048
 blocksize=128
 #服务器监听的端口

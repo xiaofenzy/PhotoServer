@@ -157,18 +157,6 @@ public class StorePhoto {
 				e.printStackTrace();
 			}
 			
-			/*
-			Map<String,String> hash = new Hashtable<String,String>();
-			hash.put("type", "1");
-			hash.put("set",set);
-			hash.put("node", localHostName);
-			hash.put("location", location);
-			hash.put("offset", offset+"");
-			hash.put("length", length+"");
-			hash.put("ref", "1");
-			hash.put("exist", "1");
-			jedis.hmset(md5, hash);
-			*/
 			String returnVal = rVal.toString();
 			//确保多个进程生成的字符串只有一个被记录下来并且被完整的记录下
 			if(jedis.setnx(md5, returnVal) == 1)
