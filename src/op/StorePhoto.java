@@ -14,6 +14,7 @@ import common.RedisFactory;
 
 public class StorePhoto {
 	private String localHostName ;					//本机名称,在我的机器上是zhaoyang-pc,用做node名
+	private int serverport;							//本机监听的端口,在这里的作用就是构造存图片时返回值
 	private String destRoot = "photo/";
 	private String confPath = "conf.txt";			//配置文件
 	private String remoteRedisHost;							//远程redis服务器地址
@@ -43,6 +44,8 @@ public class StorePhoto {
 						remoteRedisPort = Integer.parseInt(ss[1]);
 					if(ss[0].equals("localRedisPort"))
 						localRedisPort = Integer.parseInt(ss[1]);
+					if(ss[0].equals("serverport"))
+						serverport = Integer.parseInt(ss[1]);
 					if(ss[0].equals("dirnum"))
 						dirnum = Integer.parseInt(ss[1]);
 					if(ss[0].equals("blocksize"))
@@ -72,8 +75,8 @@ public class StorePhoto {
 	 * @param set	集合名
 	 * @param md5	文件的md5
 	 * @param content	文件内容
-	 * @return		type#set#node#＃path＃offset＃length,这几个信息通过redis的哈希表存储,分别表示该图片所属集合,所在相对路径（包括完整文件名），
-	 * 				该图片的字节数，和位于所在块的偏移的字节数
+	 * @return		type#set#node#port＃path＃offset＃length,这几个信息通过redis存储,分别表示元信息类型,该图片所属集合,所在节点,
+	 * 				节点的端口号,所在相对路径（包括完整文件名）,位于所在块的偏移的字节数，该图片的字节数
 	 */
 	public String storePhoto(String set, String md5, byte[] content)
 	{
@@ -139,6 +142,8 @@ public class StorePhoto {
 				rVal.append("#");
 				rVal.append(localHostName);			//node
 				rVal.append("#");
+				rVal.append(serverport);			//port
+				rVal.append("#");
 				rVal.append(location);
 				rVal.append("#");
 				rVal.append(offset);
@@ -161,12 +166,12 @@ public class StorePhoto {
 			//确保多个进程生成的字符串只有一个被记录下来并且被完整的记录下
 			if(jedis.setnx(md5, returnVal) == 1)
 			{
-				jedis.incr(md5+".ref");
+				jedis.incr("r."+md5);
 				return returnVal;
 			}
 			else
 			{
-				jedis.incr(md5+".ref");				//增加引用计数
+				jedis.incr("r."+md5);				//增加引用计数
 				return jedis.get(md5);
 			}
 		
@@ -215,16 +220,16 @@ public class StorePhoto {
 	}
 	/**
 	 * 获得图片内容
-	 * @param info		对应storePhoto的type#set#node#＃path＃offset＃length格式的返回值
+	 * @param info		对应storePhoto的type#set#node#port#path＃offset＃length格式的返回值
 	 * @return			图片内容content
 	 */
 	public byte[] searchPhoto(String info)
 	{
 		String[] infos = info.split("#");			
-		byte[] content = new byte[Integer.parseInt(infos[5])];
+		byte[] content = new byte[Integer.parseInt(infos[6])];
 		try {
-			RandomAccessFile raf = new RandomAccessFile(infos[3], "r");
-			raf.seek(Long.parseLong(infos[4]));
+			RandomAccessFile raf = new RandomAccessFile(infos[4], "r");
+			raf.seek(Long.parseLong(infos[5]));
 			raf.read(content);
 			raf.close();
 		} catch (FileNotFoundException e) {
