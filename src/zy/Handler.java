@@ -5,6 +5,7 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.Socket;
+import java.util.Arrays;
 import java.util.Hashtable;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -45,7 +46,6 @@ public class Handler implements Runnable{
 			{
 				byte[] header = new byte[4];
 				
-//				System.out.println("action"+action);
 				if((dis.read(header)) == -1)
 				{
 					break;
@@ -55,11 +55,14 @@ public class Handler implements Runnable{
 					int setlen = header[1];
 					int md5len = header[2];
 					int contentlen = dis.readInt();
-					String set = new String(readBytes(setlen,dis));
-					String md5 = new String(readBytes(md5len,dis));
+					
+					byte[] setmd5content = readBytes(setlen+md5len+contentlen, dis);	//一次把所有的都读出来,减少读取次数	
+					String set = new String(setmd5content,0,setlen);
+					String md5 = new String(setmd5content,setlen,md5len);
+					byte[] content = Arrays.copyOfRange(setmd5content, setlen+md5len, setlen+md5len+contentlen);
 					
 					ServerProfile.addWrite(contentlen);			//统计写入的字节数
-					byte[] content = readBytes(contentlen,dis);
+					
 //					is.skip(is.available());
 					WriteTask t = new WriteTask(set,md5,content);
 					synchronized (t) {
@@ -90,8 +93,13 @@ public class Handler implements Runnable{
 					}
 					
 					//把写的结果返回给客户端
-					dos.writeInt(t.getResult().getBytes().length);
-					dos.write(t.getResult().getBytes());
+					if(t.getResult().equals("#"))		//说明结果已经在redis里存在
+						dos.writeInt(-1);
+					else
+					{
+						dos.writeInt(t.getResult().getBytes().length);
+						dos.write(t.getResult().getBytes());
+					}
 					dos.flush();
 				}
 				
@@ -101,7 +109,8 @@ public class Handler implements Runnable{
 					long start = System.currentTimeMillis();
 					int infolen = header[1];
 					String info = new String(readBytes(infolen,dis));
-					if(sp == null)
+					
+					if(sp == null)			//有读请求时,才初始化该对象
 						sp = new StorePhoto();
 					byte[] content = sp.searchPhoto(info);
 					if(content == null)			//有可能刚刚写进redis的时候，还无法马上读出来,这时候会无法找到图片,返回null

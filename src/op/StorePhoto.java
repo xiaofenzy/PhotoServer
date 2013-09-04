@@ -23,7 +23,7 @@ public class StorePhoto {
 	private String confPath = "conf.txt";			//配置文件
 	private String remoteRedisHost;							//远程redis服务器地址
 	private int remoteRedisPort;							//端口号
-	private int dirnum;								//子目录层数	
+//	private int dirnum;								//子目录层数	
 	private long blocksize;							//文件块的大小，单位是B
 	private String curBlock = null;					//当前可写的块
 	private RandomAccessFile raf = null;					//写当前的块的随机访问流
@@ -49,8 +49,6 @@ public class StorePhoto {
 						remoteRedisPort = Integer.parseInt(ss[1]);
 					if(ss[0].equals("serverport"))
 						serverport = Integer.parseInt(ss[1]);
-					if(ss[0].equals("dirnum"))
-						dirnum = Integer.parseInt(ss[1]);
 					if(ss[0].equals("blocksize"))
 						blocksize = Long.parseLong(ss[1])*1024*1024;		//配置文件中单位是MB,在这里转换B
 					
@@ -92,24 +90,18 @@ public class StorePhoto {
 		sb.append(destRoot);
 		sb.append(set);
 		sb.append("/");
-		for(int i = 0;i<dirnum;i++)
-		{
-			sb.append(md5.charAt(i));
-			sb.append("/");
-		}
 		String path = sb.toString();		//存储文件的文件夹的相对路径，不包含文件名
-		File dir = new File(path);			
-		if (!dir.exists())
-			dir.mkdirs();
+
 		//找到当前可写的文件块,如果当前不够大,或不存在,则新创建一个,命名block＿id,id递增,redis中只存储id
 		//用curBlock缓存当前可写的块，减少查询jedis的次数
-		File newf;
+		File newf;			//代表要写的块的文件
+		File dir;			//要写的块所在文件夹
 		StringBuffer rVal = new StringBuffer();
 		try 
 		{
 			if (curBlock == null) 
 			{
-				curBlock = jedis.get(set);
+				curBlock = jedis.get(localHostName+"."+set);		//需要通过节点名字来标示不同节点上相同名字的集合
 				if (curBlock != null)
 				{
 					newf = new File(path + "b" + curBlock);
@@ -117,8 +109,11 @@ public class StorePhoto {
 				else 
 				{
 					curBlock = "1";
+					dir = new File(path);
+					if(!dir.exists())
+						dir.mkdirs();
 					newf = new File(path + "b" + curBlock);
-					jedis1.set(set, curBlock);
+					jedis1.set(localHostName+"."+set, curBlock);
 				}
 				raf = new RandomAccessFile(newf, "rw");
 			} 
@@ -132,8 +127,10 @@ public class StorePhoto {
 					curBlock = String.valueOf((Integer.parseInt(curBlock) + 1));
 					newf = new File(path + "b" + curBlock);
 					// jedis1.set(set, curBlock);
+					if(raf != null)			//如果换了一个新块,则先把之前的关掉
+						raf.close();
 					raf = new RandomAccessFile(newf, "rw");
-					jedis1.incr(set);
+					jedis1.incr(localHostName+"."+set);			//当前可写的块号加一
 				}
 			}
 			// 文件块的路径名，包括文件名,不包括destRoot指定的第一级目录,解析时需要加上
@@ -176,13 +173,7 @@ public class StorePhoto {
 			return returnVal;
 		else
 			return "#";
-//		if (jedis.setnx(md5, returnVal) == 1) {
-//			jedis.incr("r." + md5);
-//			return returnVal;
-//		} else {
-//			jedis.incr("r." + md5); // 增加引用计数
-//			return jedis.get(md5);
-//		}
+		
 
 	}
 	/**
