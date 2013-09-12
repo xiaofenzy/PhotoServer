@@ -5,6 +5,7 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.Socket;
+import java.net.SocketException;
 import java.util.Arrays;
 import java.util.Hashtable;
 import java.util.concurrent.BlockingQueue;
@@ -45,13 +46,14 @@ public class Handler implements Runnable{
 			while(true)
 			{
 				byte[] header = new byte[4];
-				
+//				long cu = System.currentTimeMillis();		//记录这个read执行时间
 				if((dis.read(header)) == -1)
 				{
 					break;
 				}
 				else if(header[0] == ActionType.STORE)
 				{
+//					System.out.println("in store "+(System.currentTimeMillis()-cu));		//1,2,4,5ms
 					int setlen = header[1];
 					int md5len = header[2];
 					int contentlen = dis.readInt();
@@ -59,12 +61,11 @@ public class Handler implements Runnable{
 					byte[] setmd5content = readBytes(setlen+md5len+contentlen, dis);	//一次把所有的都读出来,减少读取次数	
 					String set = new String(setmd5content,0,setlen);
 					String md5 = new String(setmd5content,setlen,md5len);
-					byte[] content = Arrays.copyOfRange(setmd5content, setlen+md5len, setlen+md5len+contentlen);
+//					byte[] content = Arrays.copyOfRange(setmd5content, setlen+md5len, setlen+md5len+contentlen);
 					
 					ServerProfile.addWrite(contentlen);			//统计写入的字节数
 					
-//					is.skip(is.available());
-					WriteTask t = new WriteTask(set,md5,content);
+					WriteTask t = new WriteTask(set,md5, setmd5content, setlen + md5len, contentlen);
 					synchronized (t) {
 						if(sq.containsKey(set))				//存在这个键,表明该写线程已经存在,直接把任务加到任务队列里即可
 						{
@@ -105,11 +106,14 @@ public class Handler implements Runnable{
 				
 				else if(header[0] == ActionType.SEARCH)
 				{
+					s.setTcpNoDelay(true);
+//					System.out.println("in search "+(System.currentTimeMillis()-cu));		//前2次请求时间很短,1,2ms,后面都是40,38ms
 //					System.out.println("in search");
 					long start = System.currentTimeMillis();
 					int infolen = header[1];
-					String info = new String(readBytes(infolen,dis));
-					
+//					long s = System.currentTimeMillis();
+					String info = new String(readBytes(infolen,dis));			//每次都有39 40ms延迟
+//					System.out.println(System.currentTimeMillis()-s);
 					if(sp == null)			//有读请求时,才初始化该对象
 						sp = new StorePhoto();
 					byte[] content = sp.searchPhoto(info);
