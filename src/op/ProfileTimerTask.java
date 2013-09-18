@@ -1,14 +1,19 @@
 package op;
 
-import java.util.Date;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.PrintWriter;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.TimerTask;
 
+import redis.clients.jedis.Jedis;
+import redis.clients.jedis.Pipeline;
+
+import common.LocalHostName;
+import common.RedisFactory;
 import common.ServerProfile;
 
 public class ProfileTimerTask extends TimerTask {
@@ -17,12 +22,23 @@ public class ProfileTimerTask extends TimerTask {
 	private long lastWn = 0;
 	private long lastTs = System.currentTimeMillis();
 	private String profileDir = "log/";
+	private Jedis jedis;
+	private String hbkey;
 	public ProfileTimerTask(int period) {
 		super();
 		this.period = period;
 		File dir = new File(profileDir);
 		if(!dir.exists())
 			dir.mkdirs();
+		//向redis的数据库1中插入心跳信息
+		jedis = new RedisFactory().getDefaultInstance();
+		hbkey = "hb."+LocalHostName.getName();
+		Pipeline pi = jedis.pipelined();
+		pi.select(1);
+		pi.set(hbkey, "1");
+		pi.expire(hbkey, 20);
+		pi.set("origin."+LocalHostName.getName(), "1");			//启动过的server
+		pi.sync();
 	}
 
 	@Override
@@ -48,6 +64,8 @@ public class ProfileTimerTask extends TimerTask {
 //		System.out.println(ServerProfile.readDelay+"  " + ServerProfile.readN);
 //		System.out.println("total:" +ServerProfile.total.longValue());
 		
+		//server的心跳信息
+		jedis.expire(hbkey, 20);
 		//把统计信息写入文件,每一天的信息放在一个文件里
 		String profileName = s.substring(0, 10)+".txt";
 		PrintWriter pw = null;

@@ -1,31 +1,61 @@
 package common;
 
+import java.io.BufferedReader;
+import java.io.FileNotFoundException;
+import java.io.FileReader;
+import java.io.IOException;
+
 import redis.clients.jedis.Jedis;
 
 
 public class RedisFactory {
-//	private static Jedis jedis = null;		//专门用来操作redis中数据库0,0中里面存储的是md5与存储时的返回的映射
-//	private static Jedis jedis1 = null;		//用来操作1,1中存储的是每个集合当前可写的块,set--block＿id
 	
-	//单例模式,免得每个线程都要连接服务器
-	//开始时候想写成单例，可是发现这样好像在并发访问的时候会出问题，就该成每次都是重新获得一个实例
-	public static Jedis getNewRemoteInstance(String host,int port)
+	private String confPath = "conf.txt";
+	private String remoteRedisHost;
+	private int remoteRedisPort;
+	public RedisFactory()
 	{
-//		if(jedis == null)
-		{
+		try {
+			BufferedReader br = new BufferedReader(new FileReader(confPath));
+			String line = "";
+			while(true)
+			{
+				line = br.readLine();
+				if(line == null)
+					break;
+				else if(!line.startsWith("#"))		
+				{
+					String[] ss = line.split("=");
+					if(ss[0].equals("remoteRedisHost"))
+						remoteRedisHost = ss[1];
+					if(ss[0].equals("remoteRedisPort"))
+						remoteRedisPort = Integer.parseInt(ss[1]);
+				}
+			}
+			br.close();
+			
+		} catch (FileNotFoundException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+	}
+	//从配置文件中读取redis的地址和端口,以此创建jedis对象
+	public Jedis getDefaultInstance()
+	{
+		return new Jedis(remoteRedisHost,remoteRedisPort);
+	}
+	public static Jedis getNewInstance(String host,int port)
+	{
 			Jedis jedis = new Jedis(host,port);
 			return jedis;
-		}
-//		return jedis;
 	}
-	public static Jedis getNewLocalInstance(int port)
+	public static Jedis getNewInstance1(String host,int port)
 	{
-//		if(jedis1 == null)
-		{
-			Jedis jedis1 = new Jedis("localhost",port);
+			Jedis jedis1 = new Jedis(host,port);
 			jedis1.select(1);
 			return jedis1;
-		}
-//		return jedis1;
 	}
 }
