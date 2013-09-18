@@ -5,10 +5,8 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.Socket;
-import java.net.SocketException;
-import java.util.Arrays;
-import java.util.Hashtable;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingQueue;
 
 import common.ActionType;
@@ -18,14 +16,14 @@ import op.StorePhoto;
 import op.WriteThread;
 
 public class Handler implements Runnable{
-	private Hashtable<String,BlockingQueue<WriteTask>> sq;
+	private ConcurrentHashMap<String,BlockingQueue<WriteTask>> sq;
 	private Socket s;
 	
 	private StorePhoto sp;
 	
 	private DataInputStream dis;
 	private DataOutputStream dos;					//向客户端的输出流
-	public Handler(Socket s,Hashtable<String,BlockingQueue<WriteTask>> sq)
+	public Handler(Socket s,ConcurrentHashMap<String,BlockingQueue<WriteTask>> sq)
 	{
 //		System.out.println(s.getRemoteSocketAddress()+"kaishi");
 		this.s = s;
@@ -108,7 +106,6 @@ public class Handler implements Runnable{
 				{
 					s.setTcpNoDelay(true);
 //					System.out.println("in search "+(System.currentTimeMillis()-cu));		//前2次请求时间很短,1,2ms,后面都是40,38ms
-//					System.out.println("in search");
 					long start = System.currentTimeMillis();
 					int infolen = header[1];
 //					long s = System.currentTimeMillis();
@@ -128,11 +125,26 @@ public class Handler implements Runnable{
 						dos.flush();
 					}
 					ServerProfile.addDelay(System.currentTimeMillis() - start);
-//					System.out.println("in search end");
+				}
+				
+				else if(header[0] == ActionType.DELSET)
+				{
+					String set = new String(readBytes(header[1],dis));
+					if(sq.containsKey(set))
+					{
+						sq.get(set).add(new WriteTask(null,null,null,0,0));			//要删除这个集合,把在这个集合上进行写的线程停掉,null作为标志
+						sq.remove(set);
+					}
+					if(sp == null)			//有该请求时,才初始化该对象
+						sp = new StorePhoto();
+					sp.delSet(set);
+					dos.write(1);			//返回一个字节1,代表删除成功
 				}
 			}
+			if(sp != null)
+				sp.close();
 		} catch (IOException e) {
-			// TODO Auto-generated catch block
+			// TODO Auto-generated catch block 
 			e.printStackTrace();
 		}
 //		System.out.println(s.getRemoteSocketAddress()+"jieshu");

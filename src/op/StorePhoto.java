@@ -6,14 +6,13 @@ import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.RandomAccessFile;
-import java.net.InetAddress;
 import java.util.Enumeration;
 import java.util.Hashtable;
 import java.util.List;
 
 import redis.clients.jedis.Jedis;
 import redis.clients.jedis.Pipeline;
-
+import common.LocalHostName;
 import common.RedisFactory;
 
 public class StorePhoto {
@@ -60,7 +59,7 @@ public class StorePhoto {
 			jedis1 = RedisFactory.getNewInstance1(remoteRedisHost,remoteRedisPort);
 			br.close();
 			
-			localHostName = InetAddress.getLocalHost().getHostName();
+			localHostName = LocalHostName.getName();
 			readRafHash = new Hashtable<String,RandomAccessFile>();
 		} catch (FileNotFoundException e) {
 			// TODO Auto-generated catch block
@@ -102,7 +101,7 @@ public class StorePhoto {
 		{
 			if (curBlock < 0) 
 			{
-				String reply = jedis.get(set + "." + localHostName);
+				String reply = jedis1.get(set + "." + localHostName);
 				if (reply != null) {
 					curBlock = Long.parseLong(reply);		//需要通过节点名字来标示不同节点上相同名字的集合
 					newf = new File(path + "b" + curBlock);
@@ -114,6 +113,7 @@ public class StorePhoto {
 					if(!dir.exists())
 						dir.mkdirs();
 					newf = new File(path + "b" + curBlock);
+					jedis1.sadd(set+".l", localHostName+"#"+serverport);			//把集合和它所在节点记录在redis的set里,方便删除,set.l表示set所在的位置
 					jedis1.set(set + "." + localHostName, "" + curBlock);
 				}
 				raf = new RandomAccessFile(newf, "rw");
@@ -165,8 +165,10 @@ public class StorePhoto {
 		String returnVal = rVal.toString();
 		// 确保多个进程生成的字符串只有一个被记录下来并且被完整的记录下
 		Pipeline pipeline = jedis.pipelined();
-		pipeline.incr("r." + md5);
-		pipeline.setnx(md5, returnVal);
+//		pipeline.incr(set+".r." + md5);
+//		pipeline.setnx(set+"."+md5, returnVal);
+		pipeline.hincrBy(set, "r."+md5, 1);
+		pipeline.hsetnx(set, md5, returnVal);
 		List<Object> l = pipeline.syncAndReturnAll();
 //		System.out.println(l.get(1).getClass());
 		if((Long)l.get(1) == 1)
@@ -207,12 +209,13 @@ public class StorePhoto {
 	 * @param md5		与storePhoto中的参数md5相对应
 	 * @return			该图片的内容,与storePhoto中的参数content对应
 	 */
-	public byte[] getPhoto(String md5)
+	public byte[] getPhoto(String set,String md5)
 	{
-		String info = jedis.get(md5);
+		String info = jedis.hget(set, md5);
 		if(info == null)
 		{
-			System.out.println("图片不存在:"+md5);
+			System.out.println("图片不存在:"+set+"."+md5);
+			
 			return null;
 		}
 		return searchPhoto(info);
@@ -257,11 +260,15 @@ public class StorePhoto {
 		return content;
 	}
 	
+	public void delSet(String set)
+	{
+		delFile(new File(destRoot+set));
+	}
 	/**
 	 * 删除文件.如果是一个文件,直接删除,如果是文件夹,递归删除子文件夹和文件
 	 * @param f
 	 */
-	public void delSet(File f)
+	private void delFile(File f)
 	{
 		if(!f.exists())
 			return;
@@ -273,15 +280,14 @@ public class StorePhoto {
 				if (a.isFile())
 					a.delete();
 				else
-					delSet(a);
+					delFile(a);
 		}
 		f.delete();
 	}
-	@Override
-	protected void finalize()		//在该类被回收时关闭jedis连接,关闭文件访问流
+	
+	public void close()		//关闭jedis连接,关闭文件访问流
 	{
 		try {
-			super.finalize();
 			if(raf != null)
 				raf.close();
 			Enumeration<RandomAccessFile> er = readRafHash.elements();
@@ -289,10 +295,6 @@ public class StorePhoto {
 				er.nextElement().close();
 		} 
 		catch(IOException e){
-			e.printStackTrace();
-		}
-		catch (Throwable e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
 		jedis.quit();

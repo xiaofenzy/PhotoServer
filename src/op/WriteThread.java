@@ -25,12 +25,18 @@ public class WriteThread implements Runnable {
 			{
 
 				WriteTask t = tasks.take();
+				if(t.getMd5() == null)
+				{
+					break;
+				}
 				synchronized (t) {
-					t.setResult(sp.storePhoto(t.getSet(), t.getMd5(), t.getContent()));
+					t.setResult(sp.storePhoto(t.getSet(), t.getMd5(), t.getContent(), t.getCoff(), t.getClen()));
 					t.notify();
 				}
 				
 			}
+			sp.close();
+			System.out.println(Thread.currentThread()+"writethread 结束");
 		} catch (InterruptedException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
