@@ -1,4 +1,4 @@
-package op;
+package iie.mm.server;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -11,10 +11,6 @@ import java.util.TimerTask;
 
 import redis.clients.jedis.Jedis;
 import redis.clients.jedis.Pipeline;
-
-import common.LocalHostName;
-import common.RedisFactory;
-import common.ServerProfile;
 
 public class ProfileTimerTask extends TimerTask {
 
@@ -32,12 +28,12 @@ public class ProfileTimerTask extends TimerTask {
 			dir.mkdirs();
 		//向redis的数据库1中插入心跳信息
 		jedis = new RedisFactory().getDefaultInstance();
-		hbkey = "hb."+LocalHostName.getName();
+		hbkey = "hb."+ServerConf.getNodeName();
 		Pipeline pi = jedis.pipelined();
 		pi.select(1);
 		pi.set(hbkey, "1");
 		pi.expire(hbkey, 20);
-		pi.set("origin."+LocalHostName.getName(), "1");			//启动过的server
+		pi.set("origin."+ServerConf.getNodeName(), "1");			//启动过的server
 		pi.sync();
 	}
 

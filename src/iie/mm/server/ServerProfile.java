@@ -1,4 +1,4 @@
-package common;
+package iie.mm.server;
 
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -7,8 +7,7 @@ public class ServerProfile {
 	public static AtomicLong readDelay = new AtomicLong(0);				//总读取延迟，单位毫秒
 	public static AtomicLong readN = new AtomicLong(0);					//读取次数
 	
-	public static AtomicLong total = new AtomicLong(0);
-	//保证多个线程时的同步
+//	public static AtomicLong total = new AtomicLong(0);
 	public static void addWrite(int n)
 	{
 		writtenBytes.addAndGet(n);
@@ -20,7 +19,6 @@ public class ServerProfile {
 	{
 		readDelay.addAndGet(d);
 		readN.getAndIncrement();			
-		total.getAndIncrement();
 	}
 	
 	public static void reset()

@@ -1,4 +1,4 @@
-package zy;
+package iie.mm.server;
 
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
@@ -8,12 +8,6 @@ import java.net.Socket;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingQueue;
-
-import common.ActionType;
-import common.ServerProfile;
-import common.WriteTask;
-import op.StorePhoto;
-import op.WriteThread;
 
 public class Handler implements Runnable{
 	private ConcurrentHashMap<String,BlockingQueue<WriteTask>> sq;
@@ -51,6 +45,7 @@ public class Handler implements Runnable{
 				}
 				else if(header[0] == ActionType.STORE)
 				{
+					s.setTcpNoDelay(true);
 //					System.out.println("in store "+(System.currentTimeMillis()-cu));		//1,2,4,5ms
 					int setlen = header[1];
 					int md5len = header[2];

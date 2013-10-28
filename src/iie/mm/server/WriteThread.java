@@ -1,8 +1,6 @@
-package op;
+package iie.mm.server;
 
 import java.util.concurrent.BlockingQueue;
-
-import common.WriteTask;
 
 public class WriteThread implements Runnable {
 

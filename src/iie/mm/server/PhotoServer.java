@@ -1,74 +1,48 @@
-package zy;
+package iie.mm.server;
 
-import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.FileReader;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.util.Hashtable;
 import java.util.Timer;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 import org.newsclub.net.unix.AFUNIXServerSocket;
 import org.newsclub.net.unix.AFUNIXSocketAddress;
 
-import op.ProfileTimerTask;
-import common.WriteTask;
-
 public class PhotoServer {
 	private ServerSocket ss;
 	private int serverport;
-	private String confPath = "conf.txt";			//配置文件
-	private int period;								//每隔period秒统计一次读写信息
+	private int period ;								//每隔period秒统计一次读写信息
 //	private String destRoot = "photo/";
 	private ExecutorService pool;
 	//集合跟到这个集合上的写操作队列的映射
-	private Hashtable<String,BlockingQueue<WriteTask>> sq = new Hashtable<String, BlockingQueue<WriteTask>>();		
+	private ConcurrentHashMap<String,BlockingQueue<WriteTask>> sq = new ConcurrentHashMap<String, BlockingQueue<WriteTask>>();		
 	public PhotoServer()
 	{
-		try {
-			BufferedReader br = new BufferedReader(new FileReader(confPath));
-			String line = "";
-			while(true)
-			{
-				line = br.readLine();
-				if(line == null)
-					break;
-				else if(!line.startsWith("#"))		
-				{
-					String[] ss = line.split("=");
-					if(ss[0].equals("serverport"))
-						serverport = Integer.parseInt(ss[1]);
-					if(ss[0].equals("period"))
-						period = Integer.parseInt(ss[1]);
-				}
+			serverport = ServerConf.getServerPort();
+			period = ServerConf.getPeriod();
+			try {
+				ss = new ServerSocket(serverport);
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
 			}
-			br.close();
-			
-			ss = new ServerSocket(serverport);
 			pool = Executors.newCachedThreadPool();
 			
-		} catch (FileNotFoundException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
 	}
 	
 	public void startUp()
 	{
-		//服务端每隔一段时间进行一次读写速率统计,10秒后开始统计，每10秒输出一次平均信息
+		//服务端每隔一段时间进行一次读写速率统计,1秒后开始统计，每10秒输出一次平均信息
 		Timer t = new Timer();
-		t.schedule(new ProfileTimerTask(period),10*1000, period*1000);
+		t.schedule(new ProfileTimerTask(period),1*1000, period*1000);
 		
 		//启动监听写请求的服务,它使用junixsocket,所以需要用一个新的线程
-		new Thread(new WriteServer()).start();
+//		new Thread(new WriteServer()).start();
 		
 		while(true)
 		{
@@ -95,6 +69,7 @@ public class PhotoServer {
 
 		@Override
 		public void run() {
+			//在本机部署多个服务端,要修改
 			final File socketFile = new File(new File(System.getProperty("java.io.tmpdir")), "junixsocket-test.sock");		
 			ExecutorService pool = Executors.newCachedThreadPool(); 
 			AFUNIXServerSocket server;

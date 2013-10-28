@@ -1,4 +1,4 @@
-package common;
+package iie.mm.server;
 
 public class WriteTask {
 	private String set;

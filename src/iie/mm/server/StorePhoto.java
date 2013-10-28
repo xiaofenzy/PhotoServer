@@ -1,9 +1,7 @@
-package op;
+package iie.mm.server;
 
-import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileNotFoundException;
-import java.io.FileReader;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.util.Enumeration;
@@ -12,14 +10,12 @@ import java.util.List;
 
 import redis.clients.jedis.Jedis;
 import redis.clients.jedis.Pipeline;
-import common.LocalHostName;
-import common.RedisFactory;
 
 public class StorePhoto {
 	private String localHostName ;					//本机名称,在我的机器上是zhaoyang-pc,用做node名
 	private int serverport;							//本机监听的端口,在这里的作用就是构造存图片时返回值
 	private String destRoot = "photo/";
-	private String confPath = "conf.txt";			//配置文件
+//	private String confPath = "conf.txt";			//配置文件
 	private String remoteRedisHost;							//远程redis服务器地址
 	private int remoteRedisPort;							//端口号
 //	private int dirnum;								//子目录层数	
@@ -31,46 +27,19 @@ public class StorePhoto {
 	private Jedis jedis,jedis1;
 	private long offset = 0;					//写文件时,记录偏移
 	
-	public StorePhoto()
-	{
-		try {
-			BufferedReader br = new BufferedReader(new FileReader(confPath));
-			String line = "";
-			while(true)
-			{
-				line = br.readLine();
-				if(line == null)
-					break;
-				else if(!line.startsWith("#"))		
-				{
-					String[] ss = line.split("=");
-					if(ss[0].equals("remoteRedisHost"))
-						remoteRedisHost = ss[1];
-					if(ss[0].equals("remoteRedisPort"))
-						remoteRedisPort = Integer.parseInt(ss[1]);
-					if(ss[0].equals("serverport"))
-						serverport = Integer.parseInt(ss[1]);
-					if(ss[0].equals("blocksize"))
-						blocksize = Long.parseLong(ss[1])*1024*1024;		//配置文件中单位是MB,在这里转换B
-					
-				}
-			}
-			jedis = RedisFactory.getNewInstance(remoteRedisHost, remoteRedisPort);
-			jedis1 = RedisFactory.getNewInstance1(remoteRedisHost,remoteRedisPort);
-			br.close();
-			
-			localHostName = LocalHostName.getName();
-			readRafHash = new Hashtable<String,RandomAccessFile>();
-		} catch (FileNotFoundException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-		
+	public StorePhoto() {
+		remoteRedisHost = ServerConf.getRedisHost();
+		remoteRedisPort = ServerConf.getRedisPort();
+		serverport = ServerConf.getServerPort();
+		blocksize = ServerConf.getBlockSize() * 1024 * 1024; // 配置文件中单位是MB,在这里转换B
+
+		jedis = RedisFactory.getNewInstance(remoteRedisHost, remoteRedisPort);
+		jedis1 = RedisFactory.getNewInstance1(remoteRedisHost, remoteRedisPort);
+
+		localHostName = ServerConf.getNodeName();
+		readRafHash = new Hashtable<String, RandomAccessFile>();
 	}
-	
+
 	/**
 	 * 把content代表的图片内容,存储起来,把小图片合并成一个块,块大小由配置文件中blocksize指定.
 	 * 文件存储在destRoot下，然后按照set分第一层子目录
@@ -270,6 +239,7 @@ public class StorePhoto {
 	 */
 	private void delFile(File f)
 	{
+		
 		if(!f.exists())
 			return;
 		if(f.isFile())

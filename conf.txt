@@ -1,11 +1,6 @@
 #远程redis服务的地址和端口号
-remoteRedisHost=127.0.0.1
-remoteRedisPort=6379
+redisHost=127.0.0.1
+redisPort=6379
 
-#每隔period秒统计一次读写速率
-period=10
-
-#文件块大小,单位是MB,要小于2048
-blocksize=64
 #服务器监听的端口
 serverport=12345
